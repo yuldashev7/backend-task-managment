@@ -1,0 +1,10 @@
+[tool.pyrefly]
+python_interpreter = 'C:\Users\yorqi\OneDrive\Desktop\backend task-managment\venv\Scripts\python.exe'
+site_package_search_path = ['C:\Users\yorqi\OneDrive\Desktop\backend task-managment\venv\Lib\site-packages']
+
+# Django dynamic attributes (objects, id, pk, etc.) ni Pyrefly tushunmaydi
+# Shuning uchun bu errorlarni o'chiramiz
+errors = [
+  { code = "missing-attribute", severity = "disabled" },
+  { code = "missing-import", severity = "disabled" },
+]
