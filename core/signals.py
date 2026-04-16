@@ -2,7 +2,7 @@ from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
-from .models import Task, Message
+from .models import Task, Message, Notification, Feedback
 
 @receiver(pre_save, sender=Task)
 def task_pre_save(sender, instance, **kwargs):
@@ -49,6 +49,43 @@ def task_post_save(sender, instance, created, **kwargs):
             }
         )
 
+    # Database Notifications for Assignee
+    if created and instance.assignee:
+        Notification.objects.create(
+            user=instance.assignee,
+            title="Yangi vazifa",
+            message=f"Sizga yangi vazifa biriktirildi: {instance.title}",
+            notification_type="TASK_ASSIGNED"
+        )
+    elif not created:
+        old_assignee = getattr(instance, "_old_assignee", None)
+        if old_assignee != instance.assignee and instance.assignee:
+            Notification.objects.create(
+                user=instance.assignee,
+                title="Yangi vazifa",
+                message=f"Sizga yangi vazifa biriktirildi: {instance.title}",
+                notification_type="TASK_ASSIGNED"
+            )
+
+        old_status = getattr(instance, "_old_status", None)
+        if old_status != instance.status:
+            if instance.assignee:
+                Notification.objects.create(
+                    user=instance.assignee,
+                    title="Vazifa holati o'zgardi",
+                    message=f"Vazifangiz holati o'zgardi: {instance.title} -> {instance.status}",
+                    notification_type="STATUS_UPDATED"
+                )
+            
+            if instance.status in [Task.Status.REVIEW, Task.Status.DONE]:
+                Notification.objects.create(
+                    user=instance.project.owner,
+                    title="Vazifa tekshirish uchun yuborildi",
+                    message=f"Xodim {instance.assignee.first_name if instance.assignee else 'Noma`lum'} '{instance.title}' vazifasini tekshirish uchun yubordi",
+                    notification_type="NEEDS_REVIEW"
+                )
+
+
 @receiver(post_save, sender=Message)
 def message_post_save(sender, instance, created, **kwargs):
     if created:
@@ -62,4 +99,14 @@ def message_post_save(sender, instance, created, **kwargs):
                 "content": instance.content,
                 "sender": instance.sender.username,
             }
+        )
+
+@receiver(post_save, sender=Feedback)
+def feedback_post_save(sender, instance, created, **kwargs):
+    if created and instance.project and instance.project.owner:
+        Notification.objects.create(
+            user=instance.project.owner,
+            title="Yangi fikr/izoh",
+            message=f"Loyiha doirasida yangi fikr qoldirildi: {instance.content[:50]}...",
+            notification_type="NEW_FEEDBACK"
         )

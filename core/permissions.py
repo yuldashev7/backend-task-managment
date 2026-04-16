@@ -15,3 +15,15 @@ class IsProjectMember(permissions.BasePermission):
             return request.user == obj.project.owner or obj.project.members.filter(id=request.user.id).exists()
             
         return False
+
+class IsPM(permissions.BasePermission):
+    """
+    Ruxsatnoma: Foydalanuvchi faqat PM (Project Manager) rolida bo'lsa ruxsat beradi.
+    """
+    def has_permission(self, request, view):
+        return bool(
+            request.user and
+            request.user.is_authenticated and
+            hasattr(request.user, 'profile') and
+            request.user.profile.role == 'PM'
+        )

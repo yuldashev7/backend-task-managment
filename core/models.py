@@ -3,6 +3,20 @@ from django.db import models
 
 User = get_user_model()
 
+class Profile(models.Model):
+    class Role(models.TextChoices):
+        PM = 'PM', 'Project Manager'
+        USER = 'USER', 'User'
+
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
+    phone_number = models.CharField(max_length=20, null=True, blank=True)
+    avatar_url = models.URLField(null=True, blank=True)
+    role = models.CharField(max_length=10, choices=Role.choices, default=Role.USER)
+    profession = models.CharField(max_length=100, null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.user.username}'s Profile"
+
 class Project(models.Model):
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True, null=True)
@@ -65,3 +79,25 @@ class Feedback(models.Model):
 
     def __str__(self):
         return f"Feedback: {self.content[:20]}"
+
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+
+@receiver(post_save, sender=User)
+def create_or_update_user_profile(sender, instance, created, **kwargs):
+    if created:
+        Profile.objects.create(user=instance)
+    else:
+        # Avoid issues if a user somehow doesn't have a profile yet
+        Profile.objects.get_or_create(user=instance)
+
+class Notification(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="notifications")
+    title = models.CharField(max_length=255)
+    message = models.TextField()
+    notification_type = models.CharField(max_length=50)
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Notification to {self.user.username}: {self.title}"

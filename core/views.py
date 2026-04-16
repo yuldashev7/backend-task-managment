@@ -7,7 +7,7 @@ Every endpoint is documented with ``@extend_schema`` for drf-spectacular.
 from django.conf import settings
 from django.contrib.auth import authenticate, get_user_model
 from django.db.models import Count, Q
-from drf_spectacular.utils import OpenApiResponse, extend_schema
+from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework import generics, mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -16,8 +16,8 @@ from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .models import Channel, Feedback, Message, Project, Task
-from .permissions import IsProjectMember
+from .models import Channel, Feedback, Message, Project, Task, Notification
+from .permissions import IsProjectMember, IsPM
 from .serializers import (
     ChannelSerializer,
     DashboardSerializer,
@@ -32,6 +32,12 @@ from .serializers import (
     TaskSerializer,
     UserSerializer,
     UserUpdateSerializer,
+    PasswordChangeSerializer,
+    EmployeeSerializer,
+    EmployeeCreateSerializer,
+    EmployeeUpdateSerializer,
+    GlobalSearchResponseSerializer,
+    NotificationSerializer,
 )
 
 User = get_user_model()
@@ -169,7 +175,7 @@ class LogoutView(APIView):
 
 
 class MeView(generics.RetrieveUpdateAPIView):
-    """Get or update the currently authenticated user."""
+    """Get or update the currently authenticated user profile."""
 
     permission_classes = [IsAuthenticated]
 
@@ -185,13 +191,83 @@ class MeView(generics.RetrieveUpdateAPIView):
     def get(self, request, *args, **kwargs):
         return super().get(request, *args, **kwargs)
 
-    @extend_schema(summary="Update Current User", request=UserUpdateSerializer, responses={200: UserSerializer})
+    @extend_schema(summary="Update Current User Profile", request=UserUpdateSerializer, responses={200: UserSerializer})
     def put(self, request, *args, **kwargs):
         return super().put(request, *args, **kwargs)
 
-    @extend_schema(summary="Partial Update Current User", request=UserUpdateSerializer, responses={200: UserSerializer})
+    @extend_schema(summary="Partial Update Current User Profile", request=UserUpdateSerializer, responses={200: UserSerializer})
     def patch(self, request, *args, **kwargs):
         return super().patch(request, *args, **kwargs)
+
+class PasswordChangeView(generics.GenericAPIView):
+    """Change the password for the current user."""
+    
+    permission_classes = [IsAuthenticated]
+    serializer_class = PasswordChangeSerializer
+    
+    @extend_schema(
+        summary="Change Password",
+        description="Change user password requiring the old password.",
+        responses={200: OpenApiResponse(description="Password successfully changed")}
+    )
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        user = request.user
+        if not user.check_password(serializer.validated_data.get("old_password")):
+            return Response({"old_password": ["Eski parol noto'g'ri."]}, status=status.HTTP_400_BAD_REQUEST)
+            
+        user.set_password(serializer.validated_data.get("new_password"))
+        user.save()
+        
+        return Response({"detail": "Parol muvaffaqiyatli almashtirildi."}, status=status.HTTP_200_OK)
+
+class TeamManagementViewSet(viewsets.ModelViewSet):
+    """Admin/PM operations for user management."""
+    
+    permission_classes = [IsAuthenticated, IsPM]
+
+    def get_queryset(self):
+        return User.objects.all().select_related("profile").order_by("-date_joined")
+
+    def get_serializer_class(self):
+        if self.action == "create":
+            return EmployeeCreateSerializer
+        elif self.action in ["update", "partial_update"]:
+            return EmployeeUpdateSerializer
+        return EmployeeSerializer
+
+    @extend_schema(summary="List Employees (PM Only)")
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
+
+    @extend_schema(summary="Add Employee (PM Only)")
+    def create(self, request, *args, **kwargs):
+        return super().create(request, *args, **kwargs)
+
+    @extend_schema(summary="Get Employee Details (PM Only)")
+    def retrieve(self, request, *args, **kwargs):
+        return super().retrieve(request, *args, **kwargs)
+
+    @extend_schema(summary="Update Employee (PM Only)")
+    def update(self, request, *args, **kwargs):
+        return super().update(request, *args, **kwargs)
+
+    @extend_schema(summary="Partial Update Employee (PM Only)")
+    def partial_update(self, request, *args, **kwargs):
+        return super().partial_update(request, *args, **kwargs)
+
+    @extend_schema(
+        summary="Block Employee (Soft Delete) (PM Only)",
+        description="Blocks the employee by setting is_active=False instead of deleting from DB."
+    )
+    def destroy(self, request, *args, **kwargs):
+        user = self.get_object()
+        user.is_active = False
+        user.save()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
 
 
 class ProjectViewSet(viewsets.ModelViewSet):
@@ -532,3 +608,91 @@ class FeedbackViewSet(
     @extend_schema(summary="Get Feedback")
     def retrieve(self, request, *args, **kwargs):
         return super().retrieve(request, *args, **kwargs)
+
+class GlobalSearchView(APIView):
+    """
+    Search across Tasks, Projects, and Users via a single endpoint.
+    """
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        summary="Global Search",
+        description="Search through Tasks, Projects, and Users based on keyword 'q'. If q is empty or not provided, returns empty arrays.",
+        parameters=[
+            OpenApiParameter(name="q", description="Search keyword", required=False, type=str),
+        ],
+        responses={200: GlobalSearchResponseSerializer}
+    )
+    def get(self, request, *args, **kwargs):
+        q = request.query_params.get("q", "").strip()
+        
+        if not q:
+            return Response({"tasks": [], "projects": [], "users": []})
+            
+        user = request.user
+        
+        # 1. Tasks: belongs to user's project, filtered by title/desc
+        tasks_qs = Task.objects.filter(
+            Q(project__owner=user) | Q(project__members=user),
+            Q(title__icontains=q) | Q(description__icontains=q)
+        ).distinct()
+        
+        # 2. Projects: belongs to user, filtered by name/desc
+        projects_qs = Project.objects.filter(
+            Q(owner=user) | Q(members=user),
+            Q(name__icontains=q) | Q(description__icontains=q)
+        ).distinct()
+        
+        # 3. Users: all users, filtered by name/phone/profession
+        users_qs = User.objects.filter(
+            Q(first_name__icontains=q) |
+            Q(last_name__icontains=q) |
+            Q(profile__phone_number__icontains=q) |
+            Q(profile__profession__icontains=q)
+        ).distinct()
+        
+        from .serializers import SearchTaskSerializer, SearchProjectSerializer, SearchUserSerializer
+        
+        return Response({
+            "tasks": SearchTaskSerializer(tasks_qs, many=True).data,
+            "projects": SearchProjectSerializer(projects_qs, many=True).data,
+            "users": SearchUserSerializer(users_qs, many=True).data
+        })
+
+class NotificationViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
+    """
+    CRUD for User Notifications.
+    """
+    serializer_class = NotificationSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Notification.objects.filter(user=self.request.user).order_by("-created_at")
+
+    @extend_schema(summary="List Notifications", description="Get all notifications for the current user.")
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
+
+    @extend_schema(
+        summary="Mark Notification as Read",
+        description="Mark a single notification as read.",
+        responses={200: NotificationSerializer}
+    )
+    @action(detail=True, methods=["patch"], url_path="read")
+    def read(self, request, pk=None):
+        notification = self.get_object()
+        notification.is_read = True
+        notification.save()
+        return Response(self.get_serializer(notification).data)
+
+    @extend_schema(
+        summary="Mark All Notifications as Read",
+        description="Mark all unread notifications for current user as read.",
+        responses={200: OpenApiResponse(description="All notifications marked as read")}
+    )
+    @action(detail=False, methods=["post"], url_path="read-all")
+    def read_all(self, request):
+        self.get_queryset().filter(is_read=False).update(is_read=True)
+        return Response({"detail": "Barcha xabarlar o'qilgan deb belgilandi."}, status=status.HTTP_200_OK)
+
+
