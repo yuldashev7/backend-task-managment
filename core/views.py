@@ -15,6 +15,8 @@ from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
+import random
+from django.core.cache import cache
 
 from .models import Channel, Feedback, Message, Project, Task, Notification
 from .permissions import IsProjectMember, IsPM
@@ -22,6 +24,8 @@ from .serializers import (
     ChannelSerializer,
     DashboardSerializer,
     FeedbackSerializer,
+    ForgotPasswordSerializer,
+    ResetPasswordSerializer,
     LoginSerializer,
     MessageSerializer,
     ProjectMemberSerializer,
@@ -126,6 +130,89 @@ class LoginView(APIView):
         refresh = RefreshToken.for_user(user)
         response = Response(UserSerializer(user).data)
         return _set_auth_cookies(response, refresh)
+
+
+class ForgotPasswordView(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    @extend_schema(
+        request=ForgotPasswordSerializer,
+        responses={
+            200: OpenApiResponse(response=dict, description="Kod generatsiya qilindi"),
+            404: OpenApiResponse(response=dict, description="Foydalanuvchi topilmadi")
+        },
+        tags=["auth"]
+    )
+    def post(self, request):
+        serializer = ForgotPasswordSerializer(data=request.data)
+        if serializer.is_valid():
+            email = serializer.validated_data['email']
+            
+            if not User.objects.filter(email=email).exists():
+                return Response(
+                    {"detail": "Ushbu email bilan foydalanuvchi topilmadi."}, 
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            
+            # OTP generatsiya qilish
+            code = f"{random.randint(100000, 999999)}"
+            
+            # Keshda 5 daqiqaga (300 soniya) saqlash
+            cache.set(f"password_reset_{email}", code, timeout=300)
+            
+            return Response(
+                {"code": code, "message": "Kod generatsiya qilindi"}, 
+                status=status.HTTP_200_OK
+            )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class ResetPasswordView(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    @extend_schema(
+        request=ResetPasswordSerializer,
+        responses={
+            200: OpenApiResponse(response=dict, description="Parol muvaffaqiyatli yangilandi"),
+            400: OpenApiResponse(response=dict, description="Noto'g'ri kod yoki xatolik")
+        },
+        tags=["auth"]
+    )
+    def post(self, request):
+        serializer = ResetPasswordSerializer(data=request.data)
+        if serializer.is_valid():
+            email = serializer.validated_data['email']
+            code = serializer.validated_data['code']
+            new_password = serializer.validated_data['new_password']
+            
+            cached_code = cache.get(f"password_reset_{email}")
+            
+            if not cached_code or cached_code != code:
+                return Response(
+                    {"detail": "Kod noto'g'ri yoki muddati o'tgan."}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+                
+            try:
+                user = User.objects.get(email=email)
+                user.set_password(new_password)
+                user.save()
+                
+                # Kod ishlatilgandan so'ng keshdan o'chirish
+                cache.delete(f"password_reset_{email}")
+                
+                return Response(
+                    {"message": "Parol muvaffaqiyatli yangilandi."}, 
+                    status=status.HTTP_200_OK
+                )
+            except User.DoesNotExist:
+                return Response(
+                    {"detail": "Foydalanuvchi topilmadi."}, 
+                    status=status.HTTP_404_NOT_FOUND
+                )
+                
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class TokenRefreshView(APIView):
