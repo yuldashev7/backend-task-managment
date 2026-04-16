@@ -140,11 +140,13 @@ class ForgotPasswordView(APIView):
         request=ForgotPasswordSerializer,
         responses={
             200: OpenApiResponse(response=dict, description="Kod generatsiya qilindi"),
-            404: OpenApiResponse(response=dict, description="Foydalanuvchi topilmadi")
+            404: OpenApiResponse(response=dict, description="Foydalanuvchi topilmadi"),
+            429: OpenApiResponse(response=dict, description="Ko'p so'rov yuborildi (Rate Limit)")
         },
         tags=["auth"]
     )
     def post(self, request):
+        import time
         serializer = ForgotPasswordSerializer(data=request.data)
         if serializer.is_valid():
             email = serializer.validated_data['email']
@@ -155,14 +157,33 @@ class ForgotPasswordView(APIView):
                     status=status.HTTP_404_NOT_FOUND
                 )
             
-            # OTP generatsiya qilish
+            retry_key = f"password_reset_retry_{email}"
+            retry_timestamp = cache.get(retry_key)
+            
+            if retry_timestamp:
+                time_passed = time.time() - retry_timestamp
+                time_left = int(60 - time_passed)
+                if time_left > 0:
+                    return Response(
+                        {"detail": f"Iltimos, qayta urinish uchun {time_left} soniya kuting."},
+                        status=status.HTTP_429_TOO_MANY_REQUESTS
+                    )
+
+            # Yangi kodni generatsiya qilish
             code = f"{random.randint(100000, 999999)}"
             
             # Keshda 5 daqiqaga (300 soniya) saqlash
             cache.set(f"password_reset_{email}", code, timeout=300)
             
+            # Cheklov kalitini 60 soniyaga saqlash
+            cache.set(retry_key, time.time(), timeout=60)
+            
             return Response(
-                {"code": code, "message": "Kod generatsiya qilindi"}, 
+                {
+                    "code": code, 
+                    "retry_timeout": 60,
+                    "message": "Kod generatsiya qilindi va 5 daqiqa davomida faol bo'ladi."
+                }, 
                 status=status.HTTP_200_OK
             )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -201,6 +222,7 @@ class ResetPasswordView(APIView):
                 
                 # Kod ishlatilgandan so'ng keshdan o'chirish
                 cache.delete(f"password_reset_{email}")
+                cache.delete(f"password_reset_retry_{email}")
                 
                 return Response(
                     {"message": "Parol muvaffaqiyatli yangilandi."}, 
