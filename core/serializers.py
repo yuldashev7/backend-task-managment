@@ -57,6 +57,10 @@ class LoginSerializer(serializers.Serializer):
     password = serializers.CharField(write_only=True)
 
 
+class GoogleLoginSerializer(serializers.Serializer):
+    token = serializers.CharField()
+
+
 class ForgotPasswordSerializer(serializers.Serializer):
     email = serializers.EmailField()
 

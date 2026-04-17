@@ -14,6 +14,7 @@ router.register(r"notifications", views.NotificationViewSet, basename="notificat
 urlpatterns = [
     path("auth/register/", views.RegisterView.as_view(), name="auth-register"),
     path("auth/login/", views.LoginView.as_view(), name="auth-login"),
+    path("auth/google/", views.GoogleLoginView.as_view(), name="auth-google"),
     path("auth/forgot-password/", views.ForgotPasswordView.as_view(), name="auth-forgot-password"),
     path("auth/reset-password/", views.ResetPasswordView.as_view(), name="auth-reset-password"),
     path("auth/refresh/", views.TokenRefreshView.as_view(), name="auth-refresh"),

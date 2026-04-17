@@ -27,6 +27,7 @@ from .serializers import (
     ForgotPasswordSerializer,
     ResetPasswordSerializer,
     LoginSerializer,
+    GoogleLoginSerializer,
     MessageSerializer,
     ProjectMemberSerializer,
     ProjectSerializer,
@@ -125,6 +126,64 @@ class LoginView(APIView):
             return Response(
                 {"detail": "Invalid credentials."},
                 status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        refresh = RefreshToken.for_user(user)
+        response = Response(UserSerializer(user).data)
+        return _set_auth_cookies(response, refresh)
+
+
+class GoogleLoginView(APIView):
+    """Authenticate via Google ID Token and receive JWT."""
+
+    permission_classes = [AllowAny]
+    throttle_classes = [AnonRateThrottle]
+
+    @extend_schema(
+        summary="Google Login",
+        description="Authenticate using Google id_token. The user must be pre-registered by an admin. JWT tokens are set as HttpOnly cookies.",
+        request=GoogleLoginSerializer,
+        responses={200: UserSerializer, 401: OpenApiResponse(description="Unregistered user or invalid token.")},
+        tags=["auth"]
+    )
+    def post(self, request):
+        from google.oauth2 import id_token
+        from google.auth.transport import requests as google_requests
+
+        serializer = GoogleLoginSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        token = serializer.validated_data["token"]
+
+        try:
+            client_id = getattr(settings, 'GOOGLE_CLIENT_ID', None)
+            
+            # Agar client_id konfiguratsiya qilinmagan bo'lsa (bo'sh string), shunchaki imzoni tekshiramiz.
+            # Lekin xavfsizlik uchun `.env` faylida GOOGLE_CLIENT_ID beringanligi afzal.
+            if client_id:
+                idinfo = id_token.verify_oauth2_token(token, google_requests.Request(), audience=client_id)
+            else:
+                # Audience tekshiruvisiz
+                idinfo = id_token.verify_oauth2_token(token, google_requests.Request())
+            
+            email = idinfo.get("email")
+            if not email:
+                return Response({"detail": "Token tarkibida email topilmadi."}, status=status.HTTP_400_BAD_REQUEST)
+
+        except ValueError as e:
+            return Response({"detail": "Yaroqsiz Google tokeni."}, status=status.HTTP_401_UNAUTHORIZED)
+        
+        user = User.objects.filter(email=email).first()
+        
+        if not user:
+            return Response(
+                {"detail": "Kechirasiz, sizning hisobingiz tizimda mavjud emas. Iltimos, admin bilan bog'laning."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        if not user.is_active:
+            return Response(
+                {"detail": "Sizning hisobingiz bloklangan."},
+                status=status.HTTP_403_FORBIDDEN,
             )
 
         refresh = RefreshToken.for_user(user)
