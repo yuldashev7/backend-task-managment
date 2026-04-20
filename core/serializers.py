@@ -1,5 +1,6 @@
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
+from django.core.cache import cache
 from .models import Project, Task, Channel, Message, Feedback, Notification
 
 User = get_user_model()
@@ -64,10 +65,40 @@ class GoogleLoginSerializer(serializers.Serializer):
 class ForgotPasswordSerializer(serializers.Serializer):
     email = serializers.EmailField()
 
+class VerifyOTPSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    code = serializers.CharField(max_length=6, min_length=6)
+
+    def validate(self, data):
+        email = data.get('email')
+        code = data.get('code')
+        
+        cached_code = cache.get(f"password_reset_{email}")
+        
+        if not cached_code or str(cached_code) != str(code):
+            raise serializers.ValidationError({"code": "Kod noto'g'ri yoki muddati o'tgan."})
+            
+        return data
+
 class ResetPasswordSerializer(serializers.Serializer):
     email = serializers.EmailField()
-    code = serializers.CharField(max_length=6)
+    code = serializers.CharField(max_length=6, min_length=6)
     new_password = serializers.CharField(write_only=True, min_length=8)
+    confirm_password = serializers.CharField(write_only=True, min_length=8)
+
+    def validate(self, data):
+        email = data.get('email')
+        code = data.get('code')
+        
+        cached_code = cache.get(f"password_reset_{email}")
+        
+        if not cached_code or str(cached_code) != str(code):
+            raise serializers.ValidationError({"code": "Kod noto'g'ri yoki muddati o'tgan."})
+            
+        if data.get('new_password') != data.get('confirm_password'):
+            raise serializers.ValidationError({"confirm_password": "Parollar afsuski mos kelmadi."})
+            
+        return data
 
 
 class ProjectMemberSerializer(serializers.Serializer):

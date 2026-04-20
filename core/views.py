@@ -25,6 +25,7 @@ from .serializers import (
     DashboardSerializer,
     FeedbackSerializer,
     ForgotPasswordSerializer,
+    VerifyOTPSerializer,
     ResetPasswordSerializer,
     LoginSerializer,
     GoogleLoginSerializer,
@@ -199,6 +200,7 @@ class ForgotPasswordView(APIView):
         request=ForgotPasswordSerializer,
         responses={
             200: OpenApiResponse(response=dict, description="Kod generatsiya qilindi"),
+            400: OpenApiResponse(response=dict, description="Validatsiya xatosi (masalan: email formati noto'g'ri)"),
             404: OpenApiResponse(response=dict, description="Foydalanuvchi topilmadi"),
             429: OpenApiResponse(response=dict, description="Ko'p so'rov yuborildi (Rate Limit)")
         },
@@ -247,6 +249,28 @@ class ForgotPasswordView(APIView):
             )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+class VerifyOTPView(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    @extend_schema(
+        request=VerifyOTPSerializer,
+        responses={
+            200: OpenApiResponse(response=dict, description="Kod to'g'ri"),
+            400: OpenApiResponse(response=dict, description="Noto'g'ri kod, yoki validatsiya xatosi"),
+        },
+        tags=["auth"]
+    )
+    def post(self, request):
+        serializer = VerifyOTPSerializer(data=request.data)
+        if serializer.is_valid():
+            return Response(
+                {"message": "Kod muvaffaqiyatli tasdiqlandi!"}, 
+                status=status.HTTP_200_OK
+            )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
 class ResetPasswordView(APIView):
     permission_classes = [AllowAny]
     authentication_classes = []
@@ -255,7 +279,8 @@ class ResetPasswordView(APIView):
         request=ResetPasswordSerializer,
         responses={
             200: OpenApiResponse(response=dict, description="Parol muvaffaqiyatli yangilandi"),
-            400: OpenApiResponse(response=dict, description="Noto'g'ri kod yoki xatolik")
+            400: OpenApiResponse(response=dict, description="Noto'g'ri kod, yoki validatsiya xatosi"),
+            404: OpenApiResponse(response=dict, description="Foydalanuvchi topilmadi")
         },
         tags=["auth"]
     )
@@ -263,19 +288,12 @@ class ResetPasswordView(APIView):
         serializer = ResetPasswordSerializer(data=request.data)
         if serializer.is_valid():
             email = serializer.validated_data['email']
-            code = serializer.validated_data['code']
             new_password = serializer.validated_data['new_password']
-            
-            cached_code = cache.get(f"password_reset_{email}")
-            
-            if not cached_code or cached_code != code:
-                return Response(
-                    {"detail": "Kod noto'g'ri yoki muddati o'tgan."}, 
-                    status=status.HTTP_400_BAD_REQUEST
-                )
                 
             try:
-                user = User.objects.get(email=email)
+                user = User.objects.filter(email=email).first()
+                if not user:
+                    return Response({"detail": "Foydalanuvchi topilmadi."}, status=status.HTTP_404_NOT_FOUND)
                 user.set_password(new_password)
                 user.save()
                 
@@ -287,10 +305,11 @@ class ResetPasswordView(APIView):
                     {"message": "Parol muvaffaqiyatli yangilandi."}, 
                     status=status.HTTP_200_OK
                 )
-            except User.DoesNotExist:
+            except Exception as e:
+                import traceback
                 return Response(
-                    {"detail": "Foydalanuvchi topilmadi."}, 
-                    status=status.HTTP_404_NOT_FOUND
+                    {"detail": "Vay! Serverda qandaydir kutilmagan blok xatosi.", "error": str(e), "trace": traceback.format_exc()}, 
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
                 )
                 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
