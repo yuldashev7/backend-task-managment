@@ -10,6 +10,7 @@ router.register(r"channels", views.ChannelViewSet, basename="channel")
 router.register(r"feedback", views.FeedbackViewSet, basename="feedback")
 router.register(r"admin/users", views.TeamManagementViewSet, basename="admin-users")
 router.register(r"notifications", views.NotificationViewSet, basename="notification")
+router.register(r"documents", views.DocumentViewSet, basename="document")
 
 urlpatterns = [
     path("auth/register/", views.RegisterView.as_view(), name="auth-register"),

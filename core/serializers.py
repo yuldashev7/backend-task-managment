@@ -1,7 +1,7 @@
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 from django.core.cache import cache
-from .models import Project, Task, Channel, Message, Feedback, Notification
+from .models import Project, Task, Channel, Message, Feedback, Notification, Document
 
 User = get_user_model()
 
@@ -261,3 +261,9 @@ class NotificationSerializer(serializers.ModelSerializer):
         model = Notification
         fields = "__all__"
 
+class DocumentSerializer(serializers.ModelSerializer):
+    created_by = UserSerializer(read_only=True)
+    
+    class Meta:
+        model = Document
+        fields = "__all__"

@@ -18,7 +18,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 import random
 from django.core.cache import cache
 
-from .models import Channel, Feedback, Message, Project, Task, Notification
+from .models import Channel, Feedback, Message, Project, Task, Notification, Document
 from .permissions import IsProjectMember, IsPM
 from .serializers import (
     ChannelSerializer,
@@ -44,6 +44,7 @@ from .serializers import (
     EmployeeUpdateSerializer,
     GlobalSearchResponseSerializer,
     NotificationSerializer,
+    DocumentSerializer,
 )
 
 User = get_user_model()
@@ -98,7 +99,13 @@ class RegisterView(generics.CreateAPIView):
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
         refresh = RefreshToken.for_user(user)
-        response = Response(UserSerializer(user).data, status=status.HTTP_201_CREATED)
+        refresh['role'] = user.profile.role
+        
+        data = UserSerializer(user).data
+        data['accessToken'] = str(refresh.access_token)
+        data['refreshToken'] = str(refresh)
+        
+        response = Response(data, status=status.HTTP_201_CREATED)
         return _set_auth_cookies(response, refresh)
 
 
@@ -130,7 +137,13 @@ class LoginView(APIView):
             )
 
         refresh = RefreshToken.for_user(user)
-        response = Response(UserSerializer(user).data)
+        refresh['role'] = user.profile.role
+
+        data = UserSerializer(user).data
+        data['accessToken'] = str(refresh.access_token)
+        data['refreshToken'] = str(refresh)
+
+        response = Response(data)
         return _set_auth_cookies(response, refresh)
 
 
@@ -188,7 +201,13 @@ class GoogleLoginView(APIView):
             )
 
         refresh = RefreshToken.for_user(user)
-        response = Response(UserSerializer(user).data)
+        refresh['role'] = user.profile.role
+
+        data = UserSerializer(user).data
+        data['accessToken'] = str(refresh.access_token)
+        data['refreshToken'] = str(refresh)
+
+        response = Response(data)
         return _set_auth_cookies(response, refresh)
 
 
@@ -327,9 +346,11 @@ class TokenRefreshView(APIView):
     )
     def post(self, request):
         jwt_cfg = settings.SIMPLE_JWT
+        # Try finding token in cookies first, then in the request body
         raw_refresh = request.COOKIES.get(
             jwt_cfg.get("AUTH_COOKIE_REFRESH", "refresh_token")
-        )
+        ) or request.data.get("refreshToken") or request.data.get("refresh")
+
         if not raw_refresh:
             return Response(
                 {"detail": "Refresh token not found."},
@@ -337,7 +358,22 @@ class TokenRefreshView(APIView):
             )
         try:
             refresh = RefreshToken(raw_refresh)
-            response = Response({"detail": "Token refreshed."})
+            
+            # Add role to refreshed token as well
+            try:
+                from django.contrib.auth import get_user_model
+                User = get_user_model()
+                user = User.objects.get(id=refresh['user_id'])
+                refresh['role'] = user.profile.role
+            except Exception:
+                pass
+
+            data = {
+                "detail": "Token refreshed.",
+                "accessToken": str(refresh.access_token),
+                "refreshToken": str(refresh)
+            }
+            response = Response(data)
             return _set_auth_cookies(response, refresh)
         except Exception:
             return Response(
@@ -881,5 +917,34 @@ class NotificationViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
     def read_all(self, request):
         self.get_queryset().filter(is_read=False).update(is_read=True)
         return Response({"detail": "Barcha xabarlar o'qilgan deb belgilandi."}, status=status.HTTP_200_OK)
+
+class DocumentViewSet(viewsets.ModelViewSet):
+    """
+    PM'lar uchun hujjatlarni (TZ, eslatmalar) boshqarish API'si.
+    """
+    serializer_class = DocumentSerializer
+    permission_classes = [IsAuthenticated, IsPM]
+
+    def get_queryset(self):
+        user = self.request.user
+        # PM o'zi yaratgan yoki o'zi a'zo bo'lgan loyihalardagi hujjatlarni ko'ra oladi
+        return Document.objects.filter(
+            Q(created_by=user) | Q(project__owner=user) | Q(project__members=user)
+        ).distinct().select_related("project", "created_by").order_by("-created_at")
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+    @extend_schema(summary="PM hujjatlar ro'yxati (Faqat PM)")
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
+
+    @extend_schema(summary="Hujjat yaratish (Faqat PM)")
+    def create(self, request, *args, **kwargs):
+        return super().create(request, *args, **kwargs)
+
+    @extend_schema(summary="Hujjatni o'chirish (Faqat PM)")
+    def destroy(self, request, *args, **kwargs):
+        return super().destroy(request, *args, **kwargs)
 
 

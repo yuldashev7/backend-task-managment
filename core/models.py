@@ -101,3 +101,18 @@ class Notification(models.Model):
 
     def __str__(self):
         return f"Notification to {self.user.username}: {self.title}"
+
+class Document(models.Model):
+    """
+    PM'lar uchun texnik topshiriqlar, eslatmalar va rasmlar saqlash uchun model.
+    """
+    title = models.CharField(max_length=255)
+    content = models.TextField(blank=True, null=True)
+    file = models.FileField(upload_to='documents/', blank=True, null=True)
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="documents", null=True, blank=True)
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name="documents")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.title
