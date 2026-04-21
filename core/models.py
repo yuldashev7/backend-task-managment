@@ -8,14 +8,22 @@ class Profile(models.Model):
         PM = 'PM', 'Project Manager'
         USER = 'USER', 'User'
 
+    class Gender(models.TextChoices):
+        MALE = 'male', 'Erkak'
+        FEMALE = 'female', 'Ayol'
+
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     phone_number = models.CharField(max_length=20, null=True, blank=True)
-    avatar_url = models.URLField(null=True, blank=True)
+    avatar = models.ImageField(upload_to='avatars/', null=True, blank=True)
     role = models.CharField(max_length=10, choices=Role.choices, default=Role.USER)
     profession = models.CharField(max_length=100, null=True, blank=True)
+    gender = models.CharField(max_length=10, choices=Gender.choices, null=True, blank=True)
+    bg_image = models.ImageField(upload_to='backgrounds/', null=True, blank=True)
+
 
     def __str__(self):
         return f"{self.user.username}'s Profile"
+
 
 class Project(models.Model):
     name = models.CharField(max_length=255)

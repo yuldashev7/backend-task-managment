@@ -6,36 +6,125 @@ from .models import Project, Task, Channel, Message, Feedback, Notification, Doc
 User = get_user_model()
 
 class UserSerializer(serializers.ModelSerializer):
-    phone_number = serializers.CharField(source='profile.phone_number', read_only=True)
-    avatar_url = serializers.URLField(source='profile.avatar_url', read_only=True)
-    role = serializers.CharField(source='profile.role', read_only=True)
-    profession = serializers.CharField(source='profile.profession', read_only=True)
+    phone_number = serializers.SerializerMethodField()
+    avatar = serializers.SerializerMethodField()
+    role = serializers.SerializerMethodField()
+    profession = serializers.SerializerMethodField()
+    gender = serializers.SerializerMethodField()
+    bg_image = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ("id", "username", "email", "first_name", "last_name", "phone_number", "avatar_url", "role", "profession", "is_active")
+        fields = ("id", "username", "email", "first_name", "last_name", "phone_number", "avatar", "bg_image", "role", "profession", "gender", "is_active")
+
+    def _get_profile(self, obj):
+        return getattr(obj, 'profile', None)
+
+    def get_phone_number(self, obj):
+        profile = self._get_profile(obj)
+        return profile.phone_number if profile else None
+
+    def get_role(self, obj):
+        profile = self._get_profile(obj)
+        return profile.role if profile else 'USER'
+
+    def get_profession(self, obj):
+        profile = self._get_profile(obj)
+        return profile.profession if profile else None
+
+    def get_gender(self, obj):
+        profile = self._get_profile(obj)
+        return profile.gender if profile else None
+
+    def get_bg_image(self, obj):
+        request = self.context.get('request')
+        profile = self._get_profile(obj)
+        if profile and profile.bg_image:
+            if request:
+                return request.build_absolute_uri(profile.bg_image.url)
+            return profile.bg_image.url
+        return None
+
+    def get_avatar(self, obj):
+        request = self.context.get('request')
+        profile = self._get_profile(obj)
+        
+        if not profile:
+            return None
+
+        # Haqiqiy avatar yuklangan bo'lsa — uni qaytaramiz
+        if profile.avatar:
+            if request:
+                return request.build_absolute_uri(profile.avatar.url)
+            return profile.avatar.url
+
+        # Avatar yo'q — genderga qarab default URL
+        if profile.gender == 'male':
+            return 'default_male'
+        elif profile.gender == 'female':
+            return 'default_female'
+
+        # Gender ham yo'q
+        return None
 
 class UserUpdateSerializer(serializers.ModelSerializer):
-    phone_number = serializers.CharField(source='profile.phone_number', required=False)
-    avatar_url = serializers.URLField(source='profile.avatar_url', required=False)
+    phone_number = serializers.CharField(required=False, allow_blank=True)
+    avatar = serializers.ImageField(required=False)
+    bg_image = serializers.ImageField(required=False)
+    gender = serializers.ChoiceField(choices=['male', 'female'], required=False, allow_null=True)
+    old_password = serializers.CharField(required=False, write_only=True, allow_blank=True)
+    new_password = serializers.CharField(required=False, write_only=True, allow_blank=True, min_length=6)
 
     class Meta:
         model = User
-        fields = ("first_name", "last_name", "phone_number", "avatar_url")
-        
+        fields = ("first_name", "last_name", "phone_number", "avatar", "bg_image", "gender", "old_password", "new_password")
+
+    def validate(self, data):
+        old_password = data.get('old_password')
+        new_password = data.get('new_password')
+
+        # Agar yangi parol berilgan bo'lsa, eski parol ham berilishi shart
+        if new_password and not old_password:
+            raise serializers.ValidationError({"old_password": "Yangi parol o'rnatish uchun eski parolni kiriting."})
+
+        # Eski parol to'g'riligini tekshiramiz
+        if old_password and new_password:
+            user = self.instance
+            if not user.check_password(old_password):
+                raise serializers.ValidationError({"old_password": "Eski parol noto'g'ri."})
+
+        return data
+
     def update(self, instance, validated_data):
-        profile_data = validated_data.pop('profile', {})
-        
+        phone_number = validated_data.pop('phone_number', None)
+        avatar = validated_data.pop('avatar', None)
+        bg_image = validated_data.pop('bg_image', None)
+        gender = validated_data.pop('gender', None)
+        old_password = validated_data.pop('old_password', None)
+        new_password = validated_data.pop('new_password', None)
+
         instance.first_name = validated_data.get('first_name', instance.first_name)
         instance.last_name = validated_data.get('last_name', instance.last_name)
+
+        # Parolni o'zgartiramiz
+        if old_password and new_password:
+            instance.set_password(new_password)
+
         instance.save()
 
-        profile = instance.profile
-        profile.phone_number = profile_data.get('phone_number', profile.phone_number)
-        profile.avatar_url = profile_data.get('avatar_url', profile.avatar_url)
+        profile, created = Profile.objects.get_or_create(user=instance)
+        if phone_number is not None:
+            profile.phone_number = phone_number
+        if gender is not None:
+            profile.gender = gender
+        if bg_image is not None and not isinstance(bg_image, str):
+            profile.bg_image = bg_image
+        if avatar is not None and not isinstance(avatar, str):
+            profile.avatar = avatar
         profile.save()
 
         return instance
+
 
 class PasswordChangeSerializer(serializers.Serializer):
     old_password = serializers.CharField(required=True)
@@ -170,35 +259,86 @@ class FeedbackSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 class EmployeeSerializer(serializers.ModelSerializer):
-    phone_number = serializers.CharField(source='profile.phone_number', read_only=True)
-    avatar_url = serializers.URLField(source='profile.avatar_url', read_only=True)
-    role = serializers.CharField(source='profile.role', read_only=True)
-    profession = serializers.CharField(source='profile.profession', read_only=True)
+    phone_number = serializers.SerializerMethodField()
+    avatar = serializers.SerializerMethodField()
+    role = serializers.SerializerMethodField()
+    profession = serializers.SerializerMethodField()
+    gender = serializers.SerializerMethodField()
+    bg_image = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ("id", "username", "email", "first_name", "last_name", "is_active", "phone_number", "avatar_url", "role", "profession")
+        fields = ("id", "username", "email", "first_name", "last_name", "is_active", "phone_number", "avatar", "bg_image", "role", "profession", "gender")
+
+    def _get_profile(self, obj):
+        return getattr(obj, 'profile', None)
+
+    def get_phone_number(self, obj):
+        profile = self._get_profile(obj)
+        return profile.phone_number if profile else None
+
+    def get_role(self, obj):
+        profile = self._get_profile(obj)
+        return profile.role if profile else 'USER'
+
+    def get_profession(self, obj):
+        profile = self._get_profile(obj)
+        return profile.profession if profile else None
+
+    def get_gender(self, obj):
+        profile = self._get_profile(obj)
+        return profile.gender if profile else None
+
+    def get_bg_image(self, obj):
+        request = self.context.get('request')
+        profile = self._get_profile(obj)
+        if profile and profile.bg_image:
+            if request:
+                return request.build_absolute_uri(profile.bg_image.url)
+            return profile.bg_image.url
+        return None
+
+    def get_avatar(self, obj):
+        request = self.context.get('request')
+        profile = self._get_profile(obj)
+        
+        if not profile:
+            return None
+            
+        if profile.avatar:
+            if request:
+                return request.build_absolute_uri(profile.avatar.url)
+            return profile.avatar.url
+        if profile.gender == 'male':
+            return 'default_male'
+        elif profile.gender == 'female':
+            return 'default_female'
+        return None
 
 class EmployeeCreateSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
     role = serializers.ChoiceField(choices=['PM', 'USER'], required=False)
     profession = serializers.CharField(max_length=100, required=False, allow_blank=True)
     phone_number = serializers.CharField(max_length=20, required=False, allow_blank=True)
+    avatar = serializers.ImageField(required=False)
 
     class Meta:
         model = User
-        fields = ("username", "email", "password", "first_name", "last_name", "role", "profession", "phone_number")
+        fields = ("username", "email", "password", "first_name", "last_name", "role", "profession", "phone_number", "avatar")
 
     def create(self, validated_data):
         role = validated_data.pop('role', 'USER')
         profession = validated_data.pop('profession', '')
         phone_number = validated_data.pop('phone_number', '')
+        avatar = validated_data.pop('avatar', None)
 
         user = User.objects.create_user(**validated_data)
         profile = user.profile
         profile.role = role
         profile.profession = profession
         profile.phone_number = phone_number
+        if avatar and not isinstance(avatar, str):
+            profile.avatar = avatar
         profile.save()
         return user
 
@@ -206,24 +346,28 @@ class EmployeeUpdateSerializer(serializers.ModelSerializer):
     role = serializers.ChoiceField(choices=['PM', 'USER'], required=False)
     profession = serializers.CharField(max_length=100, required=False, allow_blank=True)
     is_active = serializers.BooleanField(required=False)
+    avatar = serializers.ImageField(required=False)
 
     class Meta:
         model = User
-        fields = ("is_active", "role", "profession")
+        fields = ("is_active", "role", "profession", "avatar")
 
     def update(self, instance, validated_data):
         role = validated_data.pop('role', None)
         profession = validated_data.pop('profession', None)
+        avatar = validated_data.pop('avatar', None)
         
         if 'is_active' in validated_data:
             instance.is_active = validated_data['is_active']
             instance.save()
             
-        profile = instance.profile
+        profile, created = Profile.objects.get_or_create(user=instance)
         if role is not None:
             profile.role = role
         if profession is not None:
             profile.profession = profession
+        if avatar is not None and not isinstance(avatar, str):
+            profile.avatar = avatar
         profile.save()
         return instance
 
@@ -245,11 +389,11 @@ class SearchProjectSerializer(serializers.ModelSerializer):
 
 class SearchUserSerializer(serializers.ModelSerializer):
     profession = serializers.CharField(source='profile.profession', read_only=True)
-    avatar_url = serializers.URLField(source='profile.avatar_url', read_only=True)
+    avatar = serializers.ImageField(source='profile.avatar', read_only=True)
 
     class Meta:
         model = User
-        fields = ("id", "first_name", "last_name", "profession", "avatar_url")
+        fields = ("id", "first_name", "last_name", "profession", "avatar")
 
 class GlobalSearchResponseSerializer(serializers.Serializer):
     tasks = SearchTaskSerializer(many=True)

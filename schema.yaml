@@ -1,0 +1,2250 @@
+openapi: 3.0.3
+info:
+  title: Task Management API
+  version: 1.0.0
+  description: Real-Time Task Management Backend
+paths:
+  /api/admin/users/:
+    get:
+      operationId: admin_users_list
+      description: Admin/PM operations for user management.
+      summary: List Employees (PM Only)
+      tags:
+      - admin
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Employee'
+          description: ''
+    post:
+      operationId: admin_users_create
+      description: Admin/PM operations for user management.
+      summary: Add Employee (PM Only)
+      tags:
+      - admin
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/EmployeeCreate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/EmployeeCreate'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmployeeCreate'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmployeeCreate'
+          description: ''
+  /api/admin/users/{id}/:
+    get:
+      operationId: admin_users_retrieve
+      description: Admin/PM operations for user management.
+      summary: Get Employee Details (PM Only)
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this user.
+        required: true
+      tags:
+      - admin
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Employee'
+          description: ''
+    put:
+      operationId: admin_users_update
+      description: Admin/PM operations for user management.
+      summary: Update Employee (PM Only)
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this user.
+        required: true
+      tags:
+      - admin
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/EmployeeUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/EmployeeUpdate'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmployeeUpdate'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmployeeUpdate'
+          description: ''
+    patch:
+      operationId: admin_users_partial_update
+      description: Admin/PM operations for user management.
+      summary: Partial Update Employee (PM Only)
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this user.
+        required: true
+      tags:
+      - admin
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedEmployeeUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedEmployeeUpdate'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedEmployeeUpdate'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmployeeUpdate'
+          description: ''
+    delete:
+      operationId: admin_users_destroy
+      description: Blocks the employee by setting is_active=False instead of deleting
+        from DB.
+      summary: Block Employee (Soft Delete) (PM Only)
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this user.
+        required: true
+      tags:
+      - admin
+      responses:
+        '204':
+          description: No response body
+  /api/auth/forgot-password/:
+    post:
+      operationId: auth_forgot_password_create
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ForgotPassword'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ForgotPassword'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ForgotPassword'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: Kod generatsiya qilindi
+        '400':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: 'Validatsiya xatosi (masalan: email formati noto''g''ri)'
+        '404':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: Foydalanuvchi topilmadi
+        '429':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: Ko'p so'rov yuborildi (Rate Limit)
+  /api/auth/google/:
+    post:
+      operationId: auth_google_create
+      description: Authenticate using Google id_token. The user must be pre-registered
+        by an admin. JWT tokens are set as HttpOnly cookies.
+      summary: Google Login
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GoogleLogin'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/GoogleLogin'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/GoogleLogin'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+        '401':
+          description: Unregistered user or invalid token.
+  /api/auth/login/:
+    post:
+      operationId: auth_login_create
+      description: Authenticate with username/password. JWT tokens are set as HttpOnly
+        cookies.
+      summary: Login
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Login'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Login'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Login'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+        '401':
+          description: Invalid credentials
+  /api/auth/logout/:
+    post:
+      operationId: auth_logout_create
+      description: Clear HttpOnly JWT cookies.
+      summary: Logout
+      tags:
+      - auth
+      responses:
+        '200':
+          description: Logged out
+  /api/auth/me/:
+    get:
+      operationId: auth_me_retrieve
+      description: Get or update the currently authenticated user profile.
+      summary: Get Current User
+      tags:
+      - auth
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+    put:
+      operationId: auth_me_update
+      description: Get or update the currently authenticated user profile.
+      summary: Update Current User Profile
+      tags:
+      - auth
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UserUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UserUpdate'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserUpdate'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+    patch:
+      operationId: auth_me_partial_update
+      description: Get or update the currently authenticated user profile.
+      summary: Partial Update Current User Profile
+      tags:
+      - auth
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedUserUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedUserUpdate'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedUserUpdate'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+  /api/auth/refresh/:
+    post:
+      operationId: auth_refresh_create
+      description: Read the refresh_token cookie and return a fresh access_token cookie.
+      summary: Refresh Token
+      tags:
+      - auth
+      security:
+      - {}
+      responses:
+        '200':
+          description: Token refreshed
+        '401':
+          description: Invalid or missing refresh token
+  /api/auth/register/:
+    post:
+      operationId: auth_register_create
+      description: Create a new user account.
+      summary: Register
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Register'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Register'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Register'
+        required: true
+      security:
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+  /api/auth/reset-password/:
+    post:
+      operationId: auth_reset_password_create
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResetPassword'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ResetPassword'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ResetPassword'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: Parol muvaffaqiyatli yangilandi
+        '400':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: Noto'g'ri kod, yoki validatsiya xatosi
+        '404':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: Foydalanuvchi topilmadi
+  /api/auth/verify-otp/:
+    post:
+      operationId: auth_verify_otp_create
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyOTP'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/VerifyOTP'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/VerifyOTP'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: Kod to'g'ri
+        '400':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: Noto'g'ri kod, yoki validatsiya xatosi
+  /api/channels/:
+    get:
+      operationId: channels_list
+      description: Filterable by `project` query param.
+      summary: List Channels
+      tags:
+      - channels
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Channel'
+          description: ''
+    post:
+      operationId: channels_create
+      description: CRUD for chat channels + nested messages endpoint.
+      summary: Create Channel
+      tags:
+      - channels
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Channel'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Channel'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Channel'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Channel'
+          description: ''
+  /api/channels/{id}/:
+    get:
+      operationId: channels_retrieve
+      description: CRUD for chat channels + nested messages endpoint.
+      summary: Get Channel
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - channels
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Channel'
+          description: ''
+    put:
+      operationId: channels_update
+      description: CRUD for chat channels + nested messages endpoint.
+      summary: Update Channel
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - channels
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Channel'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Channel'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Channel'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Channel'
+          description: ''
+    patch:
+      operationId: channels_partial_update
+      description: CRUD for chat channels + nested messages endpoint.
+      summary: Partial Update Channel
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - channels
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedChannel'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedChannel'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedChannel'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Channel'
+          description: ''
+    delete:
+      operationId: channels_destroy
+      description: CRUD for chat channels + nested messages endpoint.
+      summary: Delete Channel
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - channels
+      responses:
+        '204':
+          description: No response body
+  /api/channels/{id}/messages/:
+    get:
+      operationId: channels_messages_list
+      description: CRUD for chat channels + nested messages endpoint.
+      summary: List Channel Messages
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - channels
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Message'
+          description: ''
+  /api/channels/{id}/messages/send/:
+    post:
+      operationId: channels_messages_send_create
+      description: Create a new message in this channel (also broadcast via WebSocket).
+      summary: Send Message to Channel
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - channels
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Message'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Message'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Message'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+          description: ''
+  /api/documents/:
+    get:
+      operationId: documents_list
+      description: PM'lar uchun hujjatlarni (TZ, eslatmalar) boshqarish API'si.
+      summary: PM hujjatlar ro'yxati (Faqat PM)
+      tags:
+      - documents
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Document'
+          description: ''
+    post:
+      operationId: documents_create
+      description: PM'lar uchun hujjatlarni (TZ, eslatmalar) boshqarish API'si.
+      summary: Hujjat yaratish (Faqat PM)
+      tags:
+      - documents
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Document'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Document'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Document'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Document'
+          description: ''
+  /api/documents/{id}/:
+    get:
+      operationId: documents_retrieve
+      description: PM'lar uchun hujjatlarni (TZ, eslatmalar) boshqarish API'si.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - documents
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Document'
+          description: ''
+    put:
+      operationId: documents_update
+      description: PM'lar uchun hujjatlarni (TZ, eslatmalar) boshqarish API'si.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - documents
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Document'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Document'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Document'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Document'
+          description: ''
+    patch:
+      operationId: documents_partial_update
+      description: PM'lar uchun hujjatlarni (TZ, eslatmalar) boshqarish API'si.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - documents
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedDocument'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedDocument'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedDocument'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Document'
+          description: ''
+    delete:
+      operationId: documents_destroy
+      description: PM'lar uchun hujjatlarni (TZ, eslatmalar) boshqarish API'si.
+      summary: Hujjatni o'chirish (Faqat PM)
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - documents
+      responses:
+        '204':
+          description: No response body
+  /api/feedback/:
+    get:
+      operationId: feedback_list
+      description: Filterable by `project` query param. Requires authentication.
+      summary: List Feedback
+      tags:
+      - feedback
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Feedback'
+          description: ''
+    post:
+      operationId: feedback_create
+      description: No authentication required. User identity is not stored.
+      summary: Submit Anonymous Feedback
+      tags:
+      - feedback
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Feedback'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Feedback'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Feedback'
+        required: true
+      security:
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Feedback'
+          description: ''
+  /api/feedback/{id}/:
+    get:
+      operationId: feedback_retrieve
+      description: Anonymous feedback.
+      summary: Get Feedback
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this feedback.
+        required: true
+      tags:
+      - feedback
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Feedback'
+          description: ''
+  /api/notifications/:
+    get:
+      operationId: notifications_list
+      description: Get all notifications for the current user.
+      summary: List Notifications
+      tags:
+      - notifications
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Notification'
+          description: ''
+  /api/notifications/{id}/read/:
+    patch:
+      operationId: notifications_read_partial_update
+      description: Mark a single notification as read.
+      summary: Mark Notification as Read
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - notifications
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedNotification'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedNotification'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedNotification'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notification'
+          description: ''
+  /api/notifications/read-all/:
+    post:
+      operationId: notifications_read_all_create
+      description: Mark all unread notifications for current user as read.
+      summary: Mark All Notifications as Read
+      tags:
+      - notifications
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Notification'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Notification'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Notification'
+        required: true
+      responses:
+        '200':
+          description: All notifications marked as read
+  /api/projects/:
+    get:
+      operationId: projects_list
+      description: CRUD for projects + dashboard analytics + member management.
+      summary: List Projects
+      tags:
+      - projects
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Project'
+          description: ''
+    post:
+      operationId: projects_create
+      description: CRUD for projects + dashboard analytics + member management.
+      summary: Create Project
+      tags:
+      - projects
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Project'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Project'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Project'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+          description: ''
+  /api/projects/{id}/:
+    get:
+      operationId: projects_retrieve
+      description: CRUD for projects + dashboard analytics + member management.
+      summary: Get Project
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - projects
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+          description: ''
+    put:
+      operationId: projects_update
+      description: CRUD for projects + dashboard analytics + member management.
+      summary: Update Project
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - projects
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Project'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Project'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Project'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+          description: ''
+    patch:
+      operationId: projects_partial_update
+      description: CRUD for projects + dashboard analytics + member management.
+      summary: Partial Update Project
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - projects
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedProject'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedProject'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedProject'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+          description: ''
+    delete:
+      operationId: projects_destroy
+      description: CRUD for projects + dashboard analytics + member management.
+      summary: Delete Project
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - projects
+      responses:
+        '204':
+          description: No response body
+  /api/projects/{id}/dashboard/:
+    get:
+      operationId: projects_dashboard_retrieve
+      description: 'Analytics: task counts by status/priority, progress percentage.'
+      summary: Project Dashboard
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - projects
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Dashboard'
+          description: ''
+  /api/projects/{id}/members/:
+    get:
+      operationId: projects_members_list
+      description: CRUD for projects + dashboard analytics + member management.
+      summary: List Project Members
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - projects
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+          description: ''
+  /api/projects/{id}/members/add/:
+    post:
+      operationId: projects_members_add_create
+      description: Add users to the project by IDs.
+      summary: Add Project Members
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - projects
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectMember'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ProjectMember'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ProjectMember'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+          description: ''
+  /api/projects/{id}/members/remove/:
+    post:
+      operationId: projects_members_remove_create
+      description: Remove users from the project by IDs.
+      summary: Remove Project Members
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - projects
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectMember'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ProjectMember'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ProjectMember'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+          description: ''
+  /api/search/:
+    get:
+      operationId: search_retrieve
+      description: Search through Tasks, Projects, and Users based on keyword 'q'.
+        If q is empty or not provided, returns empty arrays.
+      summary: Global Search
+      parameters:
+      - in: query
+        name: q
+        schema:
+          type: string
+        description: Search keyword
+      tags:
+      - search
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GlobalSearchResponse'
+          description: ''
+  /api/tasks/:
+    get:
+      operationId: tasks_list
+      description: Filterable by `project`, `status`, `assignee` query params.
+      summary: List Tasks
+      tags:
+      - tasks
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Task'
+          description: ''
+    post:
+      operationId: tasks_create
+      description: CRUD for tasks + Kanban move + approve actions.
+      summary: Create Task
+      tags:
+      - tasks
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Task'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Task'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Task'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+          description: ''
+  /api/tasks/{id}/:
+    get:
+      operationId: tasks_retrieve
+      description: CRUD for tasks + Kanban move + approve actions.
+      summary: Get Task
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - tasks
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+          description: ''
+    put:
+      operationId: tasks_update
+      description: CRUD for tasks + Kanban move + approve actions.
+      summary: Update Task
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - tasks
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Task'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Task'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Task'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+          description: ''
+    patch:
+      operationId: tasks_partial_update
+      description: CRUD for tasks + Kanban move + approve actions.
+      summary: Partial Update Task
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - tasks
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedTask'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedTask'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedTask'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+          description: ''
+    delete:
+      operationId: tasks_destroy
+      description: CRUD for tasks + Kanban move + approve actions.
+      summary: Delete Task
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - tasks
+      responses:
+        '204':
+          description: No response body
+  /api/tasks/{id}/approve/:
+    patch:
+      operationId: tasks_approve_partial_update
+      description: Approve a completed task. Triggers a `notification_received` WebSocket
+        event.
+      summary: Approve Task
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - tasks
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedTaskApprove'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedTaskApprove'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedTaskApprove'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+          description: ''
+  /api/tasks/{id}/move/:
+    patch:
+      operationId: tasks_move_partial_update
+      description: Change the task status. Triggers a `task_moved` WebSocket event.
+      summary: Move Task (Kanban)
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - tasks
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedTaskMove'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedTaskMove'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedTaskMove'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+          description: ''
+  /api/users/me/:
+    get:
+      operationId: users_me_retrieve
+      description: Get or update the currently authenticated user profile.
+      summary: Get Current User
+      tags:
+      - users
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+    put:
+      operationId: users_me_update
+      description: Get or update the currently authenticated user profile.
+      summary: Update Current User Profile
+      tags:
+      - users
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UserUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UserUpdate'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserUpdate'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+    patch:
+      operationId: users_me_partial_update
+      description: Get or update the currently authenticated user profile.
+      summary: Partial Update Current User Profile
+      tags:
+      - users
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedUserUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedUserUpdate'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedUserUpdate'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+  /api/users/me/change-password/:
+    post:
+      operationId: users_me_change_password_create
+      description: Change user password requiring the old password.
+      summary: Change Password
+      tags:
+      - users
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordChange'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PasswordChange'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PasswordChange'
+        required: true
+      responses:
+        '200':
+          description: Password successfully changed
+components:
+  schemas:
+    Channel:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        members:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
+          readOnly: true
+        name:
+          type: string
+          maxLength: 255
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        project:
+          type: integer
+      required:
+      - created_at
+      - id
+      - members
+      - name
+      - project
+    Dashboard:
+      type: object
+      properties:
+        total_tasks:
+          type: integer
+        completed_tasks:
+          type: integer
+        in_progress_tasks:
+          type: integer
+        review_tasks:
+          type: integer
+        todo_tasks:
+          type: integer
+        approved_tasks:
+          type: integer
+        progress_percentage:
+          type: number
+          format: double
+        tasks_by_priority:
+          type: object
+          additionalProperties:
+            type: integer
+        recent_tasks:
+          type: array
+          items:
+            $ref: '#/components/schemas/Task'
+      required:
+      - approved_tasks
+      - completed_tasks
+      - in_progress_tasks
+      - progress_percentage
+      - recent_tasks
+      - review_tasks
+      - tasks_by_priority
+      - todo_tasks
+      - total_tasks
+    Document:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        created_by:
+          allOf:
+          - $ref: '#/components/schemas/User'
+          readOnly: true
+        title:
+          type: string
+          maxLength: 255
+        content:
+          type: string
+          nullable: true
+        file:
+          type: string
+          format: uri
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        project:
+          type: integer
+          nullable: true
+      required:
+      - created_at
+      - created_by
+      - id
+      - title
+      - updated_at
+    Employee:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        username:
+          type: string
+          description: Required. 150 characters or fewer. Letters, digits and @/./+/-/_
+            only.
+          pattern: ^[\w.@+-]+$
+          maxLength: 150
+        email:
+          type: string
+          format: email
+          title: Email address
+          maxLength: 254
+        first_name:
+          type: string
+          maxLength: 150
+        last_name:
+          type: string
+          maxLength: 150
+        is_active:
+          type: boolean
+          title: Active
+          description: Designates whether this user should be treated as active. Unselect
+            this instead of deleting accounts.
+        phone_number:
+          type: string
+          readOnly: true
+        avatar:
+          type: string
+          format: uri
+          readOnly: true
+        role:
+          type: string
+          readOnly: true
+        profession:
+          type: string
+          readOnly: true
+      required:
+      - avatar
+      - id
+      - phone_number
+      - profession
+      - role
+      - username
+    EmployeeCreate:
+      type: object
+      properties:
+        username:
+          type: string
+          description: Required. 150 characters or fewer. Letters, digits and @/./+/-/_
+            only.
+          pattern: ^[\w.@+-]+$
+          maxLength: 150
+        email:
+          type: string
+          format: email
+          title: Email address
+          maxLength: 254
+        password:
+          type: string
+          writeOnly: true
+        first_name:
+          type: string
+          maxLength: 150
+        last_name:
+          type: string
+          maxLength: 150
+        role:
+          $ref: '#/components/schemas/RoleEnum'
+        profession:
+          type: string
+          maxLength: 100
+        phone_number:
+          type: string
+          maxLength: 20
+        avatar:
+          type: string
+          format: uri
+      required:
+      - password
+      - username
+    EmployeeUpdate:
+      type: object
+      properties:
+        is_active:
+          type: boolean
+        role:
+          $ref: '#/components/schemas/RoleEnum'
+        profession:
+          type: string
+          maxLength: 100
+        avatar:
+          type: string
+          format: uri
+    Feedback:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        content:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        project:
+          type: integer
+          nullable: true
+      required:
+      - content
+      - created_at
+      - id
+    ForgotPassword:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+      required:
+      - email
+    GlobalSearchResponse:
+      type: object
+      properties:
+        tasks:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchTask'
+        projects:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchProject'
+        users:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchUser'
+      required:
+      - projects
+      - tasks
+      - users
+    GoogleLogin:
+      type: object
+      properties:
+        token:
+          type: string
+      required:
+      - token
+    Login:
+      type: object
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+          writeOnly: true
+      required:
+      - password
+      - username
+    Message:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        sender:
+          allOf:
+          - $ref: '#/components/schemas/User'
+          readOnly: true
+        channel:
+          type: integer
+          readOnly: true
+        content:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - channel
+      - content
+      - created_at
+      - id
+      - sender
+    Notification:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        title:
+          type: string
+          maxLength: 255
+        message:
+          type: string
+        notification_type:
+          type: string
+          maxLength: 50
+        is_read:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        user:
+          type: integer
+      required:
+      - created_at
+      - id
+      - message
+      - notification_type
+      - title
+      - user
+    PasswordChange:
+      type: object
+      properties:
+        old_password:
+          type: string
+        new_password:
+          type: string
+      required:
+      - new_password
+      - old_password
+    PatchedChannel:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        members:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
+          readOnly: true
+        name:
+          type: string
+          maxLength: 255
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        project:
+          type: integer
+    PatchedDocument:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        created_by:
+          allOf:
+          - $ref: '#/components/schemas/User'
+          readOnly: true
+        title:
+          type: string
+          maxLength: 255
+        content:
+          type: string
+          nullable: true
+        file:
+          type: string
+          format: uri
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        project:
+          type: integer
+          nullable: true
+    PatchedEmployeeUpdate:
+      type: object
+      properties:
+        is_active:
+          type: boolean
+        role:
+          $ref: '#/components/schemas/RoleEnum'
+        profession:
+          type: string
+          maxLength: 100
+        avatar:
+          type: string
+          format: uri
+    PatchedNotification:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        title:
+          type: string
+          maxLength: 255
+        message:
+          type: string
+        notification_type:
+          type: string
+          maxLength: 50
+        is_read:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        user:
+          type: integer
+    PatchedProject:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+          nullable: true
+        owner:
+          allOf:
+          - $ref: '#/components/schemas/User'
+          readOnly: true
+        members:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+    PatchedTask:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        created_by:
+          allOf:
+          - $ref: '#/components/schemas/User'
+          readOnly: true
+        assignee:
+          type: integer
+          nullable: true
+        title:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+          nullable: true
+        status:
+          $ref: '#/components/schemas/StatusEnum'
+        priority:
+          $ref: '#/components/schemas/PriorityEnum'
+        is_approved:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        project:
+          type: integer
+    PatchedTaskApprove:
+      type: object
+      properties:
+        is_approved:
+          type: boolean
+    PatchedTaskMove:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/StatusEnum'
+    PatchedUserUpdate:
+      type: object
+      properties:
+        first_name:
+          type: string
+          maxLength: 150
+        last_name:
+          type: string
+          maxLength: 150
+        phone_number:
+          type: string
+        avatar:
+          type: string
+          format: uri
+    PriorityEnum:
+      enum:
+      - LOW
+      - MEDIUM
+      - HIGH
+      type: string
+      description: |-
+        * `LOW` - Low
+        * `MEDIUM` - Medium
+        * `HIGH` - High
+    Project:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+          nullable: true
+        owner:
+          allOf:
+          - $ref: '#/components/schemas/User'
+          readOnly: true
+        members:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - members
+      - name
+      - owner
+      - updated_at
+    ProjectMember:
+      type: object
+      properties:
+        user_ids:
+          type: array
+          items:
+            type: integer
+      required:
+      - user_ids
+    Register:
+      type: object
+      properties:
+        username:
+          type: string
+          description: Required. 150 characters or fewer. Letters, digits and @/./+/-/_
+            only.
+          pattern: ^[\w.@+-]+$
+          maxLength: 150
+        password:
+          type: string
+          writeOnly: true
+        email:
+          type: string
+          format: email
+          title: Email address
+          maxLength: 254
+        first_name:
+          type: string
+          maxLength: 150
+        last_name:
+          type: string
+          maxLength: 150
+      required:
+      - password
+      - username
+    ResetPassword:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        code:
+          type: string
+          maxLength: 6
+          minLength: 6
+        new_password:
+          type: string
+          writeOnly: true
+          minLength: 8
+        confirm_password:
+          type: string
+          writeOnly: true
+          minLength: 8
+      required:
+      - code
+      - confirm_password
+      - email
+      - new_password
+    RoleEnum:
+      enum:
+      - PM
+      - USER
+      type: string
+      description: |-
+        * `PM` - PM
+        * `USER` - USER
+    SearchProject:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        title:
+          type: string
+        status:
+          type: string
+          readOnly: true
+      required:
+      - id
+      - status
+      - title
+    SearchTask:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        title:
+          type: string
+          maxLength: 255
+        status:
+          $ref: '#/components/schemas/StatusEnum'
+      required:
+      - id
+      - title
+    SearchUser:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        first_name:
+          type: string
+          maxLength: 150
+        last_name:
+          type: string
+          maxLength: 150
+        profession:
+          type: string
+          readOnly: true
+        avatar:
+          type: string
+          format: uri
+          readOnly: true
+      required:
+      - avatar
+      - id
+      - profession
+    StatusEnum:
+      enum:
+      - TODO
+      - IN_PROGRESS
+      - REVIEW
+      - DONE
+      type: string
+      description: |-
+        * `TODO` - To Do
+        * `IN_PROGRESS` - In Progress
+        * `REVIEW` - Review
+        * `DONE` - Done
+    Task:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        created_by:
+          allOf:
+          - $ref: '#/components/schemas/User'
+          readOnly: true
+        assignee:
+          type: integer
+          nullable: true
+        title:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+          nullable: true
+        status:
+          $ref: '#/components/schemas/StatusEnum'
+        priority:
+          $ref: '#/components/schemas/PriorityEnum'
+        is_approved:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        project:
+          type: integer
+      required:
+      - created_at
+      - created_by
+      - id
+      - project
+      - title
+      - updated_at
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        username:
+          type: string
+          description: Required. 150 characters or fewer. Letters, digits and @/./+/-/_
+            only.
+          pattern: ^[\w.@+-]+$
+          maxLength: 150
+        email:
+          type: string
+          format: email
+          title: Email address
+          maxLength: 254
+        first_name:
+          type: string
+          maxLength: 150
+        last_name:
+          type: string
+          maxLength: 150
+        phone_number:
+          type: string
+          readOnly: true
+        avatar:
+          type: string
+          format: uri
+          readOnly: true
+        role:
+          type: string
+          readOnly: true
+        profession:
+          type: string
+          readOnly: true
+        is_active:
+          type: boolean
+          title: Active
+          description: Designates whether this user should be treated as active. Unselect
+            this instead of deleting accounts.
+      required:
+      - avatar
+      - id
+      - phone_number
+      - profession
+      - role
+      - username
+    UserUpdate:
+      type: object
+      properties:
+        first_name:
+          type: string
+          maxLength: 150
+        last_name:
+          type: string
+          maxLength: 150
+        phone_number:
+          type: string
+        avatar:
+          type: string
+          format: uri
+    VerifyOTP:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        code:
+          type: string
+          maxLength: 6
+          minLength: 6
+      required:
+      - code
+      - email

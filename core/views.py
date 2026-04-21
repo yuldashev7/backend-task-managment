@@ -14,6 +14,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework_simplejwt.tokens import RefreshToken
 import random
 from django.core.cache import cache
@@ -99,7 +100,9 @@ class RegisterView(generics.CreateAPIView):
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
         refresh = RefreshToken.for_user(user)
-        refresh['role'] = user.profile.role
+        profile = getattr(user, 'profile', None)
+        refresh['role'] = profile.role if profile else 'USER'
+
         
         data = UserSerializer(user).data
         data['accessToken'] = str(refresh.access_token)
@@ -137,7 +140,9 @@ class LoginView(APIView):
             )
 
         refresh = RefreshToken.for_user(user)
-        refresh['role'] = user.profile.role
+        profile = getattr(user, 'profile', None)
+        refresh['role'] = profile.role if profile else 'USER'
+
 
         data = UserSerializer(user).data
         data['accessToken'] = str(refresh.access_token)
@@ -401,6 +406,7 @@ class MeView(generics.RetrieveUpdateAPIView):
     """Get or update the currently authenticated user profile."""
 
     permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def get_serializer_class(self):
         if self.request.method in ("PUT", "PATCH"):
@@ -450,6 +456,7 @@ class TeamManagementViewSet(viewsets.ModelViewSet):
     """Admin/PM operations for user management."""
     
     permission_classes = [IsAuthenticated, IsPM]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def get_queryset(self):
         return User.objects.all().select_related("profile").order_by("-date_joined")

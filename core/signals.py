@@ -2,7 +2,10 @@ from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
-from .models import Task, Message, Notification, Feedback
+from django.contrib.auth import get_user_model
+from .models import Task, Message, Notification, Feedback, Profile
+
+User = get_user_model()
 
 @receiver(pre_save, sender=Task)
 def task_pre_save(sender, instance, **kwargs):
@@ -110,3 +113,12 @@ def feedback_post_save(sender, instance, created, **kwargs):
             message=f"Loyiha doirasida yangi fikr qoldirildi: {instance.content[:50]}...",
             notification_type="NEW_FEEDBACK"
         )
+@receiver(post_save, sender=User)
+def create_user_profile(sender, instance, created, **kwargs):
+    if created:
+        Profile.objects.get_or_create(user=instance)
+
+@receiver(post_save, sender=User)
+def save_user_profile(sender, instance, **kwargs):
+    if hasattr(instance, 'profile'):
+        instance.profile.save()
