@@ -1,7 +1,7 @@
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 from django.core.cache import cache
-from .models import Project, Task, Channel, Message, Feedback, Notification, Document
+from .models import Profile, Project, Task, Channel, Message, Feedback, Notification, Document
 
 User = get_user_model()
 
@@ -69,8 +69,8 @@ class UserSerializer(serializers.ModelSerializer):
 
 class UserUpdateSerializer(serializers.ModelSerializer):
     phone_number = serializers.CharField(required=False, allow_blank=True)
-    avatar = serializers.ImageField(required=False)
-    bg_image = serializers.ImageField(required=False)
+    avatar = serializers.ImageField(required=False, allow_null=True)
+    bg_image = serializers.ImageField(required=False, allow_null=True)
     gender = serializers.ChoiceField(choices=['male', 'female'], required=False, allow_null=True)
     old_password = serializers.CharField(required=False, write_only=True, allow_blank=True)
     new_password = serializers.CharField(required=False, write_only=True, allow_blank=True, min_length=6)
@@ -117,10 +117,19 @@ class UserUpdateSerializer(serializers.ModelSerializer):
             profile.phone_number = phone_number
         if gender is not None:
             profile.gender = gender
+        
+        # Rasm yangilash mantiqi: agar yangi fayl berilsa yangilaymiz, 
+        # agar null kelsa o'chiramiz (agar oldin bo'lsa)
         if bg_image is not None and not isinstance(bg_image, str):
             profile.bg_image = bg_image
+        elif 'bg_image' in self.initial_data and self.initial_data['bg_image'] is None:
+            profile.bg_image = None
+            
         if avatar is not None and not isinstance(avatar, str):
             profile.avatar = avatar
+        elif 'avatar' in self.initial_data and self.initial_data['avatar'] is None:
+            profile.avatar = None
+            
         profile.save()
 
         return instance
