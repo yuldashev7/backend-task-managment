@@ -52,19 +52,16 @@ class UserSerializer(serializers.ModelSerializer):
         if not profile:
             return None
 
-        # Haqiqiy avatar yuklangan bo'lsa — uni qaytaramiz
         if profile.avatar:
             if request:
                 return request.build_absolute_uri(profile.avatar.url)
             return profile.avatar.url
 
-        # Avatar yo'q — genderga qarab default URL
         if profile.gender == 'male':
             return 'default_male'
         elif profile.gender == 'female':
             return 'default_female'
 
-        # Gender ham yo'q
         return None
 
 class UserUpdateSerializer(serializers.ModelSerializer):
@@ -77,17 +74,15 @@ class UserUpdateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ("first_name", "last_name", "phone_number", "avatar", "bg_image", "gender", "old_password", "new_password")
+        fields = ("username", "email", "first_name", "last_name", "phone_number", "avatar", "bg_image", "gender", "old_password", "new_password")
 
     def validate(self, data):
         old_password = data.get('old_password')
         new_password = data.get('new_password')
 
-        # Agar yangi parol berilgan bo'lsa, eski parol ham berilishi shart
         if new_password and not old_password:
             raise serializers.ValidationError({"old_password": "Yangi parol o'rnatish uchun eski parolni kiriting."})
 
-        # Eski parol to'g'riligini tekshiramiz
         if old_password and new_password:
             user = self.instance
             if not user.check_password(old_password):
@@ -103,10 +98,11 @@ class UserUpdateSerializer(serializers.ModelSerializer):
         old_password = validated_data.pop('old_password', None)
         new_password = validated_data.pop('new_password', None)
 
+        instance.username = validated_data.get('username', instance.username)
+        instance.email = validated_data.get('email', instance.email)
         instance.first_name = validated_data.get('first_name', instance.first_name)
         instance.last_name = validated_data.get('last_name', instance.last_name)
 
-        # Parolni o'zgartiramiz
         if old_password and new_password:
             instance.set_password(new_password)
 
