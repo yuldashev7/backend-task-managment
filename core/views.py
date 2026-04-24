@@ -41,6 +41,7 @@ from .serializers import (
     UserUpdateSerializer,
     PasswordChangeSerializer,
     EmployeeSerializer,
+    EmployeeDetailSerializer,
     EmployeeCreateSerializer,
     EmployeeUpdateSerializer,
     GlobalSearchResponseSerializer,
@@ -435,9 +436,14 @@ class PasswordChangeView(generics.GenericAPIView):
     serializer_class = PasswordChangeSerializer
     
     @extend_schema(
-        summary="Change Password",
-        description="Change user password requiring the old password.",
-        responses={200: OpenApiResponse(description="Password successfully changed")}
+        summary="Change Password (Profile)",
+        description="Profil sahifasidan parol almashtirish. Eski parol, yangi parol va tasdiqlash talab qilinadi.",
+        request=PasswordChangeSerializer,
+        responses={
+            200: OpenApiResponse(description="Parol muvaffaqiyatli almashtirildi"),
+            400: OpenApiResponse(description="Validatsiya xatosi (eski parol noto'g'ri, parollar mos kelmadi, va h.k.)"),
+        },
+        tags=["auth"]
     )
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -453,50 +459,114 @@ class PasswordChangeView(generics.GenericAPIView):
         return Response({"detail": "Parol muvaffaqiyatli almashtirildi."}, status=status.HTTP_200_OK)
 
 class TeamManagementViewSet(viewsets.ModelViewSet):
-    """Admin/PM operations for user management."""
+    """Admin/PM operatsiyalari — foydalanuvchilarni boshqarish."""
     
     permission_classes = [IsAuthenticated, IsPM]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def get_queryset(self):
-        return User.objects.all().select_related("profile").order_by("-date_joined")
+        """Action'ga qarab faol yoki bloklangan user'larni qaytaradi."""
+        base_qs = (
+            User.objects.filter(profile__role='USER')
+            .exclude(is_superuser=True)
+            .exclude(id=self.request.user.id)
+            .select_related("profile")
+            .order_by("-date_joined")
+        )
+        # restore va permanent-delete uchun bloklangan user'larni ham ko'rsatish
+        if self.action in ["restore", "permanent_delete", "blocked"]:
+            return base_qs
+        # Asosiy ro'yxat — faqat faol user'lar
+        return base_qs.filter(is_active=True)
 
     def get_serializer_class(self):
         if self.action == "create":
             return EmployeeCreateSerializer
         elif self.action in ["update", "partial_update"]:
             return EmployeeUpdateSerializer
+        elif self.action == "retrieve":
+            return EmployeeDetailSerializer
         return EmployeeSerializer
 
-    @extend_schema(summary="List Employees (PM Only)")
+    @extend_schema(summary="Faol xodimlar ro'yxati (PM Only)")
     def list(self, request, *args, **kwargs):
         return super().list(request, *args, **kwargs)
 
-    @extend_schema(summary="Add Employee (PM Only)")
+    @extend_schema(summary="Yangi xodim qo'shish (PM Only)")
     def create(self, request, *args, **kwargs):
         return super().create(request, *args, **kwargs)
 
-    @extend_schema(summary="Get Employee Details (PM Only)")
+    @extend_schema(
+        summary="Xodim ma'lumotlari (PM Only)",
+        responses={200: EmployeeDetailSerializer}
+    )
     def retrieve(self, request, *args, **kwargs):
         return super().retrieve(request, *args, **kwargs)
 
-    @extend_schema(summary="Update Employee (PM Only)")
+    @extend_schema(summary="Xodimni tahrirlash (PM Only)")
     def update(self, request, *args, **kwargs):
         return super().update(request, *args, **kwargs)
 
-    @extend_schema(summary="Partial Update Employee (PM Only)")
+    @extend_schema(summary="Xodimni qisman tahrirlash (PM Only)")
     def partial_update(self, request, *args, **kwargs):
         return super().partial_update(request, *args, **kwargs)
 
     @extend_schema(
-        summary="Block Employee (Soft Delete) (PM Only)",
-        description="Blocks the employee by setting is_active=False instead of deleting from DB."
+        summary="Xodimni bloklash (PM Only)",
+        description="Xodimni o'chirmaydi, faqat is_active=False qiladi."
     )
     def destroy(self, request, *args, **kwargs):
         user = self.get_object()
         user.is_active = False
         user.save()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        return Response(
+            {"detail": "Xodim bloklandi."},
+            status=status.HTTP_200_OK
+        )
+
+    @extend_schema(
+        summary="Bloklangan xodimlar ro'yxati (PM Only)",
+        responses={200: EmployeeSerializer(many=True)},
+    )
+    @action(detail=False, methods=["get"], url_path="blocked")
+    def blocked(self, request):
+        """Bloklangan (is_active=False) USER'lar ro'yxati."""
+        blocked_users = (
+            User.objects.filter(profile__role='USER', is_active=False)
+            .exclude(is_superuser=True)
+            .exclude(id=request.user.id)
+            .select_related("profile")
+            .order_by("-date_joined")
+        )
+        serializer = EmployeeSerializer(blocked_users, many=True, context={"request": request})
+        return Response(serializer.data)
+
+    @extend_schema(
+        summary="Xodimni qayta faollashtirish (PM Only)",
+        responses={200: EmployeeSerializer},
+    )
+    @action(detail=True, methods=["patch"], url_path="restore")
+    def restore(self, request, pk=None):
+        """Bloklangan xodimni qayta faollashtiradi (is_active=True)."""
+        user = self.get_object()
+        user.is_active = True
+        user.save()
+        serializer = EmployeeSerializer(user, context={"request": request})
+        return Response(serializer.data)
+
+    @extend_schema(
+        summary="Xodimni butunlay o'chirish (PM Only)",
+        description="Xodimni bazadan butunlay o'chiradi. Bu amalni qaytarib bo'lmaydi!",
+    )
+    @action(detail=True, methods=["delete"], url_path="permanent-delete")
+    def permanent_delete(self, request, pk=None):
+        """Xodimni bazadan butunlay o'chiradi."""
+        user = self.get_object()
+        user.delete()
+        return Response(
+            {"detail": "Xodim butunlay o'chirildi."},
+            status=status.HTTP_204_NO_CONTENT
+        )
 
 
 
@@ -822,11 +892,20 @@ class FeedbackViewSet(
         return qs
 
     @extend_schema(
-        summary="Submit Anonymous Feedback",
-        description="No authentication required. User identity is not stored.",
+        summary="Submit Feedback",
+        description="Feedback yuborish. `is_anonymous: true` bo'lsa anonim, `false` bo'lsa foydalanuvchi ma'lumotlari saqlanadi.",
     )
     def create(self, request, *args, **kwargs):
-        return super().create(request, *args, **kwargs)
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        # Agar foydalanuvchi login qilgan va anonim emas bo'lsa — userni saqlaymiz
+        user = None
+        if request.user and request.user.is_authenticated and not serializer.validated_data.get("is_anonymous", True):
+            user = request.user
+
+        serializer.save(user=user)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     @extend_schema(
         summary="List Feedback",

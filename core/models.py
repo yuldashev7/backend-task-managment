@@ -55,6 +55,7 @@ class Task(models.Model):
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="tasks")
     assignee = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="assigned_tasks")
     created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name="created_tasks")
+    deadline = models.DateTimeField(null=True, blank=True)
     is_approved = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -81,12 +82,16 @@ class Message(models.Model):
         return f"{self.sender.username}: {self.content[:20]}"
 
 class Feedback(models.Model):
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="feedbacks")
     content = models.TextField()
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="feedbacks", null=True, blank=True)
+    is_anonymous = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"Feedback: {self.content[:20]}"
+        if self.is_anonymous:
+            return f"Anonim Feedback: {self.content[:20]}"
+        return f"{self.user}: {self.content[:20]}"
 
 from django.db.models.signals import post_save
 from django.dispatch import receiver

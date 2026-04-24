@@ -133,7 +133,15 @@ class UserUpdateSerializer(serializers.ModelSerializer):
 
 class PasswordChangeSerializer(serializers.Serializer):
     old_password = serializers.CharField(required=True)
-    new_password = serializers.CharField(required=True)
+    new_password = serializers.CharField(required=True, min_length=8)
+    confirm_password = serializers.CharField(required=True, min_length=8)
+
+    def validate(self, data):
+        if data.get('new_password') != data.get('confirm_password'):
+            raise serializers.ValidationError({"confirm_password": "Parollar mos kelmadi."})
+        if data.get('old_password') == data.get('new_password'):
+            raise serializers.ValidationError({"new_password": "Yangi parol eski paroldan farqli bo'lishi kerak."})
+        return data
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -259,9 +267,20 @@ class DashboardSerializer(serializers.Serializer):
     recent_tasks = TaskSerializer(many=True)
 
 class FeedbackSerializer(serializers.ModelSerializer):
+    user = UserSerializer(read_only=True)
+    is_anonymous = serializers.BooleanField(default=True)
+
     class Meta:
         model = Feedback
-        fields = "__all__"
+        fields = ("id", "user", "content", "project", "is_anonymous", "created_at")
+        read_only_fields = ("user", "created_at")
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        # Agar anonim bo'lsa, user ma'lumotlarini yashirish
+        if instance.is_anonymous:
+            data["user"] = None
+        return data
 
 class EmployeeSerializer(serializers.ModelSerializer):
     phone_number = serializers.SerializerMethodField()
@@ -320,26 +339,45 @@ class EmployeeSerializer(serializers.ModelSerializer):
             return 'default_female'
         return None
 
+from drf_spectacular.utils import extend_schema_field
+
+class EmployeeTaskSerializer(serializers.ModelSerializer):
+    """Xodimga berilgan task'ning qisqacha ma'lumoti."""
+    project_name = serializers.CharField(source='project.name', read_only=True)
+
+    class Meta:
+        model = Task
+        fields = ("id", "title", "status", "priority", "deadline", "project_name", "created_at")
+
+class EmployeeDetailSerializer(EmployeeSerializer):
+    tasks = serializers.SerializerMethodField()
+
+    class Meta(EmployeeSerializer.Meta):
+        fields = EmployeeSerializer.Meta.fields + ("tasks",)
+
+    @extend_schema_field(EmployeeTaskSerializer(many=True))
+    def get_tasks(self, obj):
+        tasks = obj.assigned_tasks.select_related("project").order_by("-created_at")
+        return EmployeeTaskSerializer(tasks, many=True).data
+
 class EmployeeCreateSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
-    role = serializers.ChoiceField(choices=['PM', 'USER'], required=False)
     profession = serializers.CharField(max_length=100, required=False, allow_blank=True)
     phone_number = serializers.CharField(max_length=20, required=False, allow_blank=True)
     avatar = serializers.ImageField(required=False)
 
     class Meta:
         model = User
-        fields = ("username", "email", "password", "first_name", "last_name", "role", "profession", "phone_number", "avatar")
+        fields = ("username", "email", "password", "first_name", "last_name", "profession", "phone_number", "avatar")
 
     def create(self, validated_data):
-        role = validated_data.pop('role', 'USER')
         profession = validated_data.pop('profession', '')
         phone_number = validated_data.pop('phone_number', '')
         avatar = validated_data.pop('avatar', None)
 
         user = User.objects.create_user(**validated_data)
         profile = user.profile
-        profile.role = role
+        profile.role = 'USER'
         profile.profession = profession
         profile.phone_number = phone_number
         if avatar and not isinstance(avatar, str):
@@ -348,17 +386,16 @@ class EmployeeCreateSerializer(serializers.ModelSerializer):
         return user
 
 class EmployeeUpdateSerializer(serializers.ModelSerializer):
-    role = serializers.ChoiceField(choices=['PM', 'USER'], required=False)
+    """PM faqat USER'larni tahrirlashi mumkin. Role o'zgartirish imkoniyati yo'q."""
     profession = serializers.CharField(max_length=100, required=False, allow_blank=True)
     is_active = serializers.BooleanField(required=False)
     avatar = serializers.ImageField(required=False)
 
     class Meta:
         model = User
-        fields = ("is_active", "role", "profession", "avatar")
+        fields = ("is_active", "profession", "avatar")
 
     def update(self, instance, validated_data):
-        role = validated_data.pop('role', None)
         profession = validated_data.pop('profession', None)
         avatar = validated_data.pop('avatar', None)
         
@@ -367,8 +404,6 @@ class EmployeeUpdateSerializer(serializers.ModelSerializer):
             instance.save()
             
         profile, created = Profile.objects.get_or_create(user=instance)
-        if role is not None:
-            profile.role = role
         if profession is not None:
             profile.profession = profession
         if avatar is not None and not isinstance(avatar, str):
