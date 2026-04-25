@@ -145,7 +145,7 @@ class PasswordChangeSerializer(serializers.Serializer):
 
 
 class RegisterSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True)
+    password = serializers.CharField(write_only=True, min_length=6, max_length=32)
 
     class Meta:
         model = User
@@ -361,11 +361,11 @@ class EmployeeDetailSerializer(EmployeeSerializer):
         return EmployeeTaskSerializer(tasks, many=True).data
 
 class EmployeeCreateSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True)
+    password = serializers.CharField(write_only=True, min_length=6, max_length=32)
     profession = serializers.CharField(max_length=100, required=False, allow_blank=True)
     phone_number = serializers.CharField(max_length=20, required=False, allow_blank=True)
     avatar = serializers.ImageField(required=False)
-
+ 
     class Meta:
         model = User
         fields = ("username", "email", "password", "first_name", "last_name", "profession", "phone_number", "avatar")

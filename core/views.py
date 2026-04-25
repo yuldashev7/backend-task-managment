@@ -473,11 +473,13 @@ class TeamManagementViewSet(viewsets.ModelViewSet):
             .select_related("profile")
             .order_by("-date_joined")
         )
-        # restore va permanent-delete uchun bloklangan user'larni ham ko'rsatish
-        if self.action in ["restore", "permanent_delete", "blocked"]:
-            return base_qs
-        # Asosiy ro'yxat — faqat faol user'lar
-        return base_qs.filter(is_active=True)
+        # Umumiy ro'yxatda (list) faqat faol xodimlarni ko'rsatamiz
+        if self.action == "list":
+            return base_qs.filter(is_active=True)
+            
+        # Qolgan barcha actionlar (retrieve, update, partial_update, destroy, h.k.) 
+        # faol va bloklangan foydalanuvchilar uchun ham ishlaydi
+        return base_qs
 
     def get_serializer_class(self):
         if self.action == "create":
@@ -565,7 +567,7 @@ class TeamManagementViewSet(viewsets.ModelViewSet):
         user.delete()
         return Response(
             {"detail": "Xodim butunlay o'chirildi."},
-            status=status.HTTP_204_NO_CONTENT
+            status=status.HTTP_200_OK
         )
 
 
